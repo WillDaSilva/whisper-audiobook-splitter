@@ -4,7 +4,6 @@ import argparse
 import re
 import tempfile
 import os
-import json
 
 
 def format_time(seconds):
@@ -25,7 +24,6 @@ def parse_srt_file(srt_filename):
         for entry in entries:
             lines = entry.split("\n")
             if len(lines) >= 3:
-                index = lines[0]
                 times = lines[1]
                 text = " ".join(lines[2:])
                 start_str, end_str = times.split(" --> ")
@@ -47,7 +45,7 @@ def parse_srt_time(time_str):
 def create_cue_file(chapters, cue_filename):
     """Create a CUE file from chapter information."""
     with open(cue_filename, "w") as cue_file:
-        cue_file.write(f'FILE "{os.path.basename(file)}" WAVE\n')
+        cue_file.write(f'FILE "{os.path.basename(args.input)}" WAVE\n')
         for i, (start, _, chapter_name) in enumerate(chapters):
             cue_file.write(f"  TRACK {i + 1:02d} AUDIO\n")
             cue_file.write(f'    TITLE "{chapter_name}"\n')
@@ -103,80 +101,87 @@ def create_srt_file(segments, srt_filename):
             srt_file.write(f"{i + 1}\n{start_time} --> {end_time}\n{segment.text}\n\n")
 
 
-def load_skip_phrases(language_code):
-    """Load skip phrases for the specified language from a JSON file."""
-    with open("skip_phrases.json", "r") as file:
-        phrases_dict = json.load(file)
-    return phrases_dict.get(language_code, [])
+number_words = [
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+    "twenty",
+    "twenty-one",
+    "twenty-two",
+    "twenty-three",
+    "twenty-four",
+    "twenty-five",
+    "twenty-six",
+    "twenty-seven",
+    "twenty-eight",
+    "twenty-nine",
+    "thirty",
+    "thirty-one",
+    "thirty-two",
+    "thirty-three",
+    "thirty-four",
+    "thirty-five",
+    "thirty-six",
+    "thirty-seven",
+    "thirty-eight",
+    "thirty-nine",
+    "forty",
+    "forty-one",
+    "forty-two",
+    "forty-three",
+    "forty-four",
+    "forty-five",
+    "forty-six",
+    "forty-seven",
+    "forty-eight",
+    "forty-nine",
+    "fifty",
+]
+
+number_pattern = re.Pattern(r"\bChapter\s+(?:" + "|".join(number_words) + r"|\d+)\b")
 
 
-def is_chapter(text, language_code="en"):
+skip_phrases = [
+    "in chapter",
+    "next chapter",
+    "end of chapter",
+    "chapter summary",
+    "chapter review",
+    "chapter discussion",
+    "chapter analysis",
+    "chapter conclusion",
+    "chapter notes",
+    "chapter highlights",
+    "previous chapter",
+    "earlier chapter",
+    "in the last chapter",
+    "as mentioned in chapter",
+    "discussed in \\w+ chapter",
+]
+
+
+def is_chapter(text):
     """Check if the text contains a chapter heading."""
-    # Load skip phrases for the specified language
-    skip_phrases = load_skip_phrases(language_code)
-
-    # Check if the text contains any skip phrases
     for phrase in skip_phrases:
         if phrase.lower() in text.lower():
             return False
-
-    if args.custom_chapter_phrase == "YK28sSr9w":
-        number_words = [
-            "one",
-            "two",
-            "three",
-            "four",
-            "five",
-            "six",
-            "seven",
-            "eight",
-            "nine",
-            "ten",
-            "eleven",
-            "twelve",
-            "thirteen",
-            "fourteen",
-            "fifteen",
-            "sixteen",
-            "seventeen",
-            "eighteen",
-            "nineteen",
-            "twenty",
-            "twenty-one",
-            "twenty-two",
-            "twenty-three",
-            "twenty-four",
-            "twenty-five",
-            "twenty-six",
-            "twenty-seven",
-            "twenty-eight",
-            "twenty-nine",
-            "thirty",
-            "thirty-one",
-            "thirty-two",
-            "thirty-three",
-            "thirty-four",
-            "thirty-five",
-            "thirty-six",
-            "thirty-seven",
-            "thirty-eight",
-            "thirty-nine",
-            "forty",
-            "forty-one",
-            "forty-two",
-            "forty-three",
-            "forty-four",
-            "forty-five",
-            "forty-six",
-            "forty-seven",
-            "forty-eight",
-            "forty-nine",
-            "fifty",
-        ]
-        number_pattern = r"\b(?:" + "|".join(number_words) + r"|\d+)\b"
-        return re.search(r"\bChapter\s+" + number_pattern, text, re.IGNORECASE)
-    else:
-        return re.search(args.custom_chapter_phrase, text, re.IGNORECASE)
+    return re.search(number_pattern, text, re.IGNORECASE)
 
 
 class Segment:
@@ -234,25 +239,11 @@ def create_output_structure(file, chapters, segments):
     create_raw_file_with_timestamps(segments, raw_filename)
 
 
-# Function to find the first MP3 file in the "Input" directory
-def find_first_mp3_in_input():
-    input_dir = "Input"
-    for file in os.listdir(input_dir):
-        if file.endswith(".mp3"):
-            return os.path.join(input_dir, file)
-    return None
-
-
 # Argument parsing
 parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--input", help="Defines file to read from")
+parser.add_argument("-i", "--input", required=True, help="Defines file to read from")
 parser.add_argument("--model", default="base", help="Model to use")
 parser.add_argument("--threads", type=int, default=6, help="Number of threads to use")
-parser.add_argument(
-    "--custom_chapter_phrase",
-    default="YK28sSr9w",
-    help="Custom phrase to use for chapter detection instead of default",
-)
 parser.add_argument(
     "--chapter_index",
     type=int,
@@ -263,24 +254,16 @@ parser.add_argument("--no_intro", help="Do not name first output file 'Intro'")
 
 args = parser.parse_args()
 
-# Use the provided input file or find the first MP3 in the "Input" folder
-file = args.input if args.input else find_first_mp3_in_input()
-
-if not file:
-    raise FileNotFoundError(
-        "No MP3 file found in the 'Input' directory and no input file specified."
-    )
-
 model_name = args.model
 n_threads = args.threads
 
-srt_filename = os.path.splitext(file)[0] + ".srt"
+srt_filename = os.path.splitext(args.input)[0] + ".srt"
 
 if os.path.exists(srt_filename):
     print(f"Using existing SRT file: {srt_filename}")
     segments = parse_srt_file(srt_filename)
 else:
-    print(f"Transcribing {file} with model {model_name}")
+    print(f"Transcribing {args.input} with model {model_name}")
     # Load the whisper.cpp model
     model = Model(
         model_name,
@@ -290,7 +273,7 @@ else:
         max_len=16,
     )
     # Transcribe the audio
-    segments = model.transcribe(file)
+    segments = model.transcribe(args.input)
     # Create SRT file
     create_srt_file(segments, srt_filename)
     print(f"Created SRT file: {srt_filename}")
@@ -316,4 +299,4 @@ if current_start is not None:
     chapters.append((current_start, segments[-1].t1 * 10, current_chapter_name))
 
 # Create structured output
-create_output_structure(file, chapters, segments)
+create_output_structure(args.input, chapters, segments)

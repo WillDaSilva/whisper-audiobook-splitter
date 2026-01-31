@@ -12,27 +12,16 @@ This script is designed to split an audiobook into chapters based on detected ch
 - Generates output files including SRT, CUE, Markdown, and raw text with timestamps.
 
 ## System requirements
+
 - Tested only on Mac os
 - Procesor Apple silicon (M1/M2/M3)
 
-## Requirements
+## Setup & Usage
 
-- Python 3.x
-- `ffmpeg`
-- `mutagen`
-- `pywhispercpp`
+- `git clone https://github.com/WillDaSilva/whisper-audiobook-splitter.git`
+- `cd whisper-audiobook-splitter`
+- `uv run main.py`
 
-## Installation & usage
-
-1. Clone the repository:
-2. Install the required Python packages:
-   ```bash
-   pip install -r requirements.txt
-3. Place your MP3 files in the `Input/` directory.
-4. Run the script:
-   ```bash
-   python Splitter.py
-   ```
 ## Customization
 
 - **Skip Phrases**: You can customize the phrases to skip when detecting chapters by editing the `skip_phrases.json` file.
